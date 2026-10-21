@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#24272C">
+<link rel="apple-touch-icon" href="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=minimalist%20green%20ledger%20accounting%20book%20app%20icon%2C%20flat%20design%2C%20rounded%20square%2C%20white%20background&image_size=square">
+<title>记账看板</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { background:#F2F3F5; color:#1A1D21; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding-bottom:40px; }
+  .tabs { display:flex; background:#24272C; position:sticky; top:0; z-index:9; }
+  .tabs button { flex:1; background:none; border:none; color:#9AA3AF; font-size:15px; font-weight:600; padding:13px 0; }
+  .tabs button.on { color:#fff; background:#1E9E4F; }
+  .page { display:none; padding:16px 14px; }
+  .page.on { display:block; }
+
+  .card { background:#fff; border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .nav button { border:1px solid #DDE2E8; background:#fff; border-radius:8px; padding:6px 14px; font-size:14px; color:#333; }
+  .nav .ttl { font-size:16px; font-weight:700; }
+
+  .bigday { text-align:center; padding:26px 0 6px; }
+  .bigday .d { font-size:64px; font-weight:800; line-height:1.1; }
+  .bigday .ym { font-size:17px; margin-top:4px; }
+  .bigday .wk { font-size:14px; color:#6B7280; margin-top:2px; }
+
+  .sum3 { display:flex; gap:10px; }
+  .sum3 .cell { flex:1; background:#fff; border-radius:14px; padding:14px 12px; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .sum3 .lb { font-size:12px; color:#8B95A3; margin-bottom:4px; }
+  .sum3 .v { font-size:17px; font-weight:700; word-break:break-all; }
+  .inc { color:#E4572E; } .exp { color:#1E9E4F; } .bal { color:#1A1D21; }
+
+  .rows { }
+  .row { display:flex; align-items:center; gap:12px; padding:11px 2px; border-bottom:1px solid #F0F2F5; }
+  .row:last-child { border-bottom:none; }
+  .row .ic { width:38px; height:38px; border-radius:10px; background:#F2F4F7; display:flex; align-items:center; justify-content:center; font-size:19px; flex:none; }
+  .row .mid { flex:1; min-width:0; }
+  .row .c { font-size:15px; font-weight:600; }
+  .row .s { font-size:12px; color:#8B95A3; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .amt { font-size:15.5px; font-weight:700; flex:none; }
+  .empty { text-align:center; color:#9AA3AF; font-size:13.5px; padding:26px 0; }
+
+  .cats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px 6px; }
+  .cat { text-align:center; }
+  .cat .ic { font-size:24px; height:44px; display:flex; align-items:center; justify-content:center; }
+  .cat .nm { font-size:12.5px; margin-top:2px; }
+  .cat .v { font-size:12.5px; font-weight:700; margin-top:2px; }
+
+  .chart { display:flex; align-items:flex-end; gap:8px; height:130px; padding-top:10px; }
+  .bar { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; }
+  .bar .col { width:100%; max-width:30px; background:#1E9E4F; border-radius:5px 5px 0 0; min-height:2px; }
+  .bar .lb { font-size:11px; color:#8B95A3; }
+  .bar .vv { font-size:10px; color:#1E9E4F; font-weight:700; }
+
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal .hd { font-size:11px; color:#8B95A3; text-align:center; padding:4px 0; }
+  .cal .cell { min-height:52px; border-radius:8px; background:#FAFBFC; padding:4px 2px; text-align:center; }
+  .cal .cell.today { outline:2px solid #1E9E4F; }
+  .cal .dd { font-size:12px; font-weight:700; }
+  .cal .m { font-size:9.5px; margin-top:1px; }
+
+  table.mtb { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.mtb th { text-align:left; color:#8B95A3; font-weight:600; font-size:12px; padding:8px 6px; border-bottom:1px solid #EEF1F4; }
+  table.mtb td { padding:9px 6px; border-bottom:1px solid #F4F6F8; }
+  table.mtb tr:last-child td { border-bottom:none; font-weight:700; }
+
+  textarea { width:100%; height:130px; border:1px solid #DDE2E8; border-radius:10px; padding:10px; font-size:13px; font-family:inherit; resize:none; }
+  .btn { display:block; width:100%; border:none; border-radius:10px; padding:13px; font-size:15px; font-weight:700; margin-top:10px; }
+  .btn.g { background:#1E9E4F; color:#fff; }
+  .btn.o { background:#fff; color:#333; border:1px solid #DDE2E8; }
+  .btn.r { background:#FFF1F0; color:#C0392B; }
+  .hint { font-size:12.5px; color:#6B7280; line-height:1.9; margin-top:12px; }
+  .stat { font-size:13px; color:#1E9E4F; font-weight:700; margin-top:8px; }
+  h3.sec { font-size:14.5px; margin:18px 2px 10px; color:#333; }
+  input[type=date], input[type=month] { border:1px solid #DDE2E8; border-radius:8px; padding:6px 8px; font-size:14px; }
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <button data-v="day" class="on">日账单</button>
+  <button data-v="month">月账单</button>
+  <button data-v="year">年账单</button>
+  <button data-v="data">数据</button>
+</div>
+
+<!-- 日账单 -->
+<div class="page on" id="p-day">
+  <div class="bigday">
+    <div class="d" id="dd">--</div>
+    <div class="ym" id="dym"></div>
+    <div class="wk" id="dwk"></div>
+  </div>
+  <div class="nav">
+    <button onclick="stepDay(-1)">‹ 前一天</button>
+    <input type="date" id="dayPick" onchange="pickDay(this.value)">
+    <button onclick="stepDay(1)">后一天 ›</button>
+  </div>
+  <div class="sum3">
+    <div class="cell"><div class="lb">收入</div><div class="v inc" id="dInc">¥0.00</div></div>
+    <div class="cell"><div class="lb">支出</div><div class="v exp" id="dExp">¥0.00</div></div>
+    <div class="cell"><div class="lb">结余</div><div class="v bal" id="dBal">¥0.00</div></div>
+  </div>
+  <h3 class="sec">当日明细</h3>
+  <div class="card rows" id="dRows"></div>
+  <h3 class="sec">近 7 日支出</h3>
+  <div class="card"><div class="chart" id="dChart"></div></div>
+</div>
+
+<!-- 月账单 -->
+<div class="page" id="p-month">
+  <div class="nav">
+    <button onclick="stepMonth(-1)">‹ 上月</button>
+    <input type="month" id="monPick" onchange="pickMonth(this.value)">
+    <button onclick="stepMonth(1)">下月 ›</button>
+  </div>
+  <div class="sum3">
+    <div class="cell"><div class="lb">本月收入</div><div class="v inc" id="mInc">¥0.00</div></div>
+    <div class="cell"><div class="lb">本月支出</div><div class="v exp" id="mExp">¥0.00</div></div>
+    <div class="cell"><div class="lb">本月结余</div><div class="v bal" id="mBal">¥0.00</div></div>
+  </div>
+  <h3 class="sec">支出分类汇总</h3>
+  <div class="card"><div class="cats" id="mCatsOut"></div></div>
+  <h3 class="sec">收入分类汇总</h3>
+  <div class="card"><div class="cats" id="mCatsIn"></div></div>
+  <h3 class="sec">收支日历</h3>
+  <div class="card"><div class="cal" id="mCal"></div></div>
+</div>
+
+<!-- 年账单 -->
+<div class="page" id="p-year">
+  <div class="nav">
+    <button onclick="stepYear(-1)">‹ 上年</button>
+    <div class="ttl" id="yTtl"></div>
+    <button onclick="stepYear(1)">下年 ›</button>
+  </div>
+  <div class="sum3">
+    <div class="cell"><div class="lb">年度收入</div><div class="v inc" id="yInc">¥0.00</div></div>
+    <div class="cell"><div class="lb">年度支出</div><div class="v exp" id="yExp">¥0.00</div></div>
+    <div class="cell"><div class="lb">年度结余</div><div class="v bal" id="yBal">¥0.00</div></div>
+  </div>
+  <h3 class="sec">年收支明细统计</h3>
+  <div class="card"><table class="mtb" id="yTbl"></table></div>
+  <h3 class="sec">年度支出分类</h3>
+  <div class="card"><div class="cats" id="yCats"></div></div>
+</div>
+
+<!-- 数据 -->
+<div class="page" id="p-data">
+  <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px;">导入流水（全量替换）</div>
+    <div class="hint" style="margin-top:0;">① 打开 Numbers 流水表 → 全选整张表 → 拷贝<br>② 回到这里，粘贴到下面框里 → 点导入</div>
+    <textarea id="paste" placeholder="在这里粘贴 Numbers 拷贝的内容（第一行要是表头：交易日期 / 收支类型 / 收支类目 / 金额 / 收支平台 / 交易账户 / 账目明细 / 备注）"></textarea>
+    <button class="btn g" onclick="doImport()">导入粘贴的内容</button>
+    <button class="btn o" onclick="document.getElementById('file').click()">同步 records.csv（增量合并）</button>
+    <input type="file" id="file" accept=".csv,.tsv,.txt" style="display:none" onchange="doFile(this)">
+    <div class="stat" id="dStat"></div>
+  </div>
+  <div class="card">
+    <button class="btn o" onclick="demo()">载入演示数据</button>
+    <button class="btn r" onclick="wipe()">清空全部数据</button>
+  </div>
+  <div class="card hint">
+    <b>快捷指令自动写入（推荐）</b><br>
+    在快捷指令「向表格添加行」之后追加 2 个动作：<br>
+    ① <b>文本</b>：内容按顺序拼 8 个变量——交易日期⇥收支类型⇥收支类目⇥金额⇥收支平台⇥交易账户⇥账目明细⇥备注，⇥是 Tab 分隔符（点下面按钮复制，在文本动作里逐个粘贴到变量之间），末尾空一行<br>
+    ② <b>将文本添加到文件</b>：文件名 records.csv，位置 iCloud Drive › Shortcuts（首次运行自动创建）<br>
+    之后每次记完账，打开本 App → 点上面「同步 records.csv」→ 选中该文件 → 自动合并去重。<br>
+    <button class="btn o" style="margin-top:8px;" onclick="copyTab()">复制 Tab 分隔符</button><br>
+    <b>加到主屏幕</b>：Safari 打开本文件 → 分享 →「添加到主屏幕」，之后像普通 App 一样点开，数据存在本机。
+  </div>
+</div>
+
+<script>
+const LS = 'bk_records_v1';
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+let records = [];
+try { records = JSON.parse(localStorage.getItem(LS) || '[]'); } catch(e){ records = []; }
+
+const state = {
+  view: 'day',
+  d: todayStr(),
+  m: todayStr().slice(0,7),
+  y: todayStr().slice(0,4),
+};
+
+function todayStr(){
+  const n = new Date();
+  return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+}
+function save(){ localStorage.setItem(LS, JSON.stringify(records)); }
+function fmt(n){ return '¥' + Math.abs(n).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function signed(n){ return (n<0?'-':'') + fmt(n); }
+function sum(rs){ return rs.reduce((a,r)=>a+r.amount,0); }
+function inMonth(r,m){ return r.date.slice(0,7)===m; }
+function inYear(r,y){ return r.date.slice(0,4)===y; }
+function wkCN(dstr){ return ['周日','周一','周二','周三','周四','周五','周六'][new Date(dstr+'T00:00:00').getDay()]; }
+function icon(cat){
+  const m = cat.match(/\p{Extended_Pictographic}/u);
+  return m ? m[0] : '📄';
+}
+function catName(cat){ return cat.replace(/\p{Extended_Pictographic}/gu,'').trim() || cat; }
+
+/* ---------- 解析 ---------- */
+function normDate(s){
+  if(!s) return null;
+  const m = s.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/);
+  if(!m) return null;
+  return m[1] + '-' + String(+m[2]).padStart(2,'0') + '-' + String(+m[3]).padStart(2,'0');
+}
+function parseTable(text){
+  const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+  if(lines.length < 1) return {err:'内容为空'};
+  const useTab = lines[0].includes('\t');
+  const split = l => useTab ? l.split('\t') : l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+  const head = split(lines[0]).map(h=>h.trim().replace(/^"|"$/g,''));
+  const find = (...names) => head.findIndex(h=>names.some(n=>h.includes(n)));
+  let ci, start;
+  if(head.some(h=>h.includes('日期'))){
+    ci = {
+      date: find('交易日期','日期'),
+      type: find('收支类型','收支'),
+      cat: find('收支类目','类目','类别','类型'),
+      amount: find('金额'),
+      platform: find('收支平台','交易平台','平台'),
+      account: find('交易账户','收支账户','账户'),
+      item: find('账目明细','明细'),
+      note: find('备注'),
+    };
+    start = 1;
+    if(ci.date<0 || ci.amount<0) return {err:'没认出表头：需要「交易日期」和「金额」列，实际读到：' + head.join(' / ')};
+  } else {
+    // 无表头：快捷指令 records.csv 固定列序
+    ci = {date:0, type:1, cat:2, amount:3, platform:4, account:5, item:6, note:7};
+    start = 0;
+  }
+  const out = [];
+  for(let i=start;i<lines.length;i++){
+    const c = split(lines[i]).map(x=>x.trim().replace(/^"|"$/g,''));
+    const d = normDate(ci.date>=0 ? c[ci.date] : '');
+    let a = parseFloat((c[ci.amount]||'').replace(/[¥$,，\s]/g,''));
+    if(!d || isNaN(a)) continue;
+    const typeRaw = ci.type>=0 ? (c[ci.type]||'') : '';
+    const isOut = typeRaw.includes('支出') || (!typeRaw && a<0);
+    a = Math.abs(a) * (isOut ? -1 : 1);
+    out.push({
+      date:d, type:isOut?'支出':'收入',
+      cat: ci.cat>=0 ? c[ci.cat]||'' : '',
+      amount:a,
+      platform: ci.platform>=0 ? c[ci.platform]||'' : '',
+      account: ci.account>=0 ? c[ci.account]||'' : '',
+      item: ci.item>=0 ? c[ci.item]||'' : '',
+      note: ci.note>=0 ? c[ci.note]||'' : '',
+    });
+  }
+  return {rows: out};
+}
+
+function doImport(){
+  const t = document.getElementById('paste').value;
+  const r = parseTable(t);
+  if(r.err){ stat('⚠️ ' + r.err, true); return; }
+  if(!r.rows.length){ stat('⚠️ 解析出 0 条，检查粘贴内容', true); return; }
+  records = r.rows; save();
+  stat('✓ 已导入 ' + records.length + ' 条流水（全量替换）');
+  render();
+}
+function keyOf(r){ return [r.date,r.type,r.cat,r.amount,r.platform,r.account,r.item,r.note].join('|'); }
+function mergeRows(rows){
+  const have = new Set(records.map(keyOf));
+  let add=0, dup=0;
+  rows.forEach(r=>{ const k=keyOf(r); if(have.has(k)){ dup++; } else { have.add(k); records.push(r); add++; } });
+  records.sort((a,b)=> a.date<b.date ? -1 : a.date>b.date ? 1 : 0);
+  save();
+  return {add, dup};
+}
+function doFile(inp){
+  const f = inp.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const r = parseTable(String(rd.result));
+    if(r.err){ stat('⚠️ ' + r.err, true); return; }
+    const m = mergeRows(r.rows);
+    stat('✓ 新增 ' + m.add + ' 条，跳过重复 ' + m.dup + ' 条（现共 ' + records.length + ' 条）');
+    render();
+  };
+  rd.readAsText(f, 'utf-8');
+  inp.value = '';
+}
+function stat(msg, bad){
+  const el = document.getElementById('dStat');
+  el.textContent = msg;
+  el.style.color = bad ? '#C0392B' : '#1E9E4F';
+}
+function copyTab(){
+  const el = document.createElement('textarea');
+  el.value = '\t';
+  document.body.appendChild(el);
+  el.select();
+  try { document.execCommand('copy'); stat('✓ 已复制 Tab 分隔符，去快捷指令的文本动作里粘贴'); }
+  catch(e){ stat('复制失败，请重试', true); }
+  document.body.removeChild(el);
+}
+function wipe(){ if(confirm('确定清空全部数据？')){ records=[]; save(); stat('已清空'); render(); } }
+function demo(){
+  const t = todayStr(), y = t.slice(0,4), m = t.slice(0,7);
+  const mk = (d,type,cat,a,p,acc,item,note)=>({date:d,type,cat,amount:type==='支出'?-a:a,platform:p,account:acc,item,note});
+  records = [
+    mk(t,'支出','🍔餐饮',46,'微信','招商','肥汁',''),
+    mk(t,'支出','🏃运动',35,'支付宝','招商','健身上衣',''),
+    mk(t,'支出','🧴日用品',20,'微信','招商','花王香皂',''),
+    mk(t,'收入','💰工资',33782,'银行','招商','1月工资',''),
+    mk(m+'-05','支出','👴长辈',10000,'银行','招商','生活费',''),
+    mk(m+'-08','支出','👶孩子',125,'微信','招商','Mamakids 洗发水',''),
+    mk(m+'-12','支出','🏠学费贷',6658,'银行','招商','月供',''),
+    mk(m+'-15','收入','💻副业',2689,'微信','招商','项目款',''),
+  ];
+  save(); stat('✓ 已载入演示数据 ' + records.length + ' 条'); render();
+}
+
+/* ---------- 视图切换 ---------- */
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.onclick = () => {
+    state.view = b.dataset.v;
+    document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on', x===b));
+    document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on', p.id==='p-'+state.view));
+    render();
+  };
+});
+
+/* ---------- 日账单 ---------- */
+function stepDay(n){
+  const d = new Date(state.d+'T00:00:00'); d.setDate(d.getDate()+n);
+  state.d = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  render();
+}
+function pickDay(v){ if(v){ state.d = v; render(); } }
+function renderDay(){
+  const d = state.d;
+  document.getElementById('dayPick').value = d;
+  document.getElementById('dd').textContent = +d.slice(8,10);
+  document.getElementById('dym').textContent = d.slice(0,4) + ' 年 ' + (+d.slice(5,7)) + ' 月';
+  document.getElementById('dwk').textContent = wkCN(d);
+  const rs = records.filter(r=>r.date===d);
+  const inc = sum(rs.filter(r=>r.type==='收入'));
+  const exp = sum(rs.filter(r=>r.type==='支出'));
+  document.getElementById('dInc').textContent = fmt(inc);
+  document.getElementById('dExp').textContent = fmt(exp);
+  document.getElementById('dBal').textContent = signed(inc+exp);
+  const box = document.getElementById('dRows');
+  box.innerHTML = rs.length ? rs.map(r=>`
+    <div class="row">
+      <div class="ic">${icon(r.cat)}</div>
+      <div class="mid">
+        <div class="c">${catName(r.cat)}</div>
+        <div class="s">${[r.item,r.platform,r.account,r.note].filter(Boolean).join(' · ')}</div>
+      </div>
+      <div class="amt ${r.type==='支出'?'exp':'inc'}">${r.type==='支出'?'':'+'}${signed(r.amount)}</div>
+    </div>`).join('') : '<div class="empty">这一天没有流水</div>';
+  // 近7日柱状图
+  const ch = document.getElementById('dChart');
+  const days = [];
+  for(let i=6;i>=0;i--){
+    const dd = new Date(d+'T00:00:00'); dd.setDate(dd.getDate()-i);
+    const key = dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0')+'-'+String(dd.getDate()).padStart(2,'0');
+    const v = -sum(records.filter(r=>r.date===key && r.type==='支出'));
+    days.push({key, v, lb:(+key.slice(5,7))+'/'+(+key.slice(8,10))});
+  }
+  const mx = Math.max(...days.map(x=>x.v), 1);
+  ch.innerHTML = days.map(x=>`
+    <div class="bar">
+      <div class="vv">${x.v>0?Math.round(x.v):''}</div>
+      <div class="col" style="height:${Math.max(2, x.v/mx*72)}px"></div>
+      <div class="lb">${x.lb}</div>
+    </div>`).join('');
+}
+
+/* ---------- 月账单 ---------- */
+function stepMonth(n){
+  let [y,m] = state.m.split('-').map(Number); m += n;
+  if(m<1){m=12;y--;} if(m>12){m=1;y++;}
+  state.m = y+'-'+String(m).padStart(2,'0');
+  render();
+}
+function pickMonth(v){ if(v){ state.m = v; render(); } }
+function catsHtml(rs){
+  if(!rs.length) return '<div class="empty" style="grid-column:1/-1">暂无记录</div>';
+  const g = {};
+  rs.forEach(r=>{ g[r.cat]=(g[r.cat]||0)+r.amount; });
+  return Object.entries(g).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).map(([c,v])=>`
+    <div class="cat">
+      <div class="ic">${icon(c)}</div>
+      <div class="nm">${catName(c)}</div>
+      <div class="v ${v<0?'exp':'inc'}">${fmt(v)}</div>
+    </div>`).join('');
+}
+function renderMonth(){
+  const m = state.m;
+  document.getElementById('monPick').value = m;
+  const rs = records.filter(r=>inMonth(r,m));
+  const inc = sum(rs.filter(r=>r.type==='收入'));
+  const exp = sum(rs.filter(r=>r.type==='支出'));
+  document.getElementById('mInc').textContent = fmt(inc);
+  document.getElementById('mExp').textContent = fmt(exp);
+  document.getElementById('mBal').textContent = signed(inc+exp);
+  document.getElementById('mCatsOut').innerHTML = catsHtml(rs.filter(r=>r.type==='支出'));
+  document.getElementById('mCatsIn').innerHTML = catsHtml(rs.filter(r=>r.type==='收入'));
+  // 日历
+  const [y,mn] = m.split('-').map(Number);
+  const first = new Date(y, mn-1, 1).getDay();
+  const dim = new Date(y, mn, 0).getDate();
+  let html = ['日','一','二','三','四','五','六'].map(w=>`<div class="hd">${w}</div>`).join('');
+  for(let i=0;i<first;i++) html += '<div></div>';
+  const t = todayStr();
+  for(let dd=1;dd<=dim;dd++){
+    const key = m+'-'+String(dd).padStart(2,'0');
+    const drs = records.filter(r=>r.date===key);
+    const di = sum(drs.filter(r=>r.type==='收入'));
+    const de = -sum(drs.filter(r=>r.type==='支出'));
+    html += `<div class="cell ${key===t?'today':''}">
+      <div class="dd">${dd}</div>
+      ${di?`<div class="m inc">+${Math.round(di)}</div>`:''}
+      ${de?`<div class="m exp">-${Math.round(de)}</div>`:''}
+    </div>`;
+  }
+  document.getElementById('mCal').innerHTML = html;
+}
+
+/* ---------- 年账单 ---------- */
+function stepYear(n){ state.y = String(+state.y + n); render(); }
+function renderYear(){
+  const y = state.y;
+  document.getElementById('yTtl').textContent = y + ' 年';
+  const rs = records.filter(r=>inYear(r,y));
+  const inc = sum(rs.filter(r=>r.type==='收入'));
+  const exp = sum(rs.filter(r=>r.type==='支出'));
+  document.getElementById('yInc').textContent = fmt(inc);
+  document.getElementById('yExp').textContent = fmt(exp);
+  document.getElementById('yBal').textContent = signed(inc+exp);
+  let rows = '<tr><th>月份</th><th>收入</th><th>支出</th><th>结余</th></tr>';
+  for(let mn=1;mn<=12;mn++){
+    const key = y+'-'+String(mn).padStart(2,'0');
+    const mr = records.filter(r=>inMonth(r,key));
+    const mi = sum(mr.filter(r=>r.type==='收入'));
+    const me = sum(mr.filter(r=>r.type==='支出'));
+    rows += `<tr><td>${mn}月</td><td class="inc">${fmt(mi)}</td><td class="exp">${fmt(me)}</td><td>${signed(mi+me)}</td></tr>`;
+  }
+  rows += `<tr><td>合计</td><td class="inc">${fmt(inc)}</td><td class="exp">${fmt(exp)}</td><td>${signed(inc+exp)}</td></tr>`;
+  document.getElementById('yTbl').innerHTML = rows;
+  document.getElementById('yCats').innerHTML = catsHtml(rs.filter(r=>r.type==='支出'));
+}
+
+function render(){
+  document.getElementById('dStat').textContent = records.length ? '当前数据：' + records.length + ' 条' : '还没有数据，去导入';
+  if(state.view==='day') renderDay();
+  if(state.view==='month') renderMonth();
+  if(state.view==='year') renderYear();
+}
+render();
+</script>
+</body>
+</html>
